@@ -1,3 +1,6 @@
+from typing import List
+
+
 test_input = """7,4,9,5,11,17,23,2,0,14,21,24,10,16,13,6,15,25,12,22,18,20,8,19,3,26,1
 
 22 13 17 11  0
@@ -22,7 +25,7 @@ test_input = """7,4,9,5,11,17,23,2,0,14,21,24,10,16,13,6,15,25,12,22,18,20,8,19,
 class Board:
     def __init__(self, rows: list) -> None:
         self.rows = [list(map(int, r.split())) for r in rows]
-        self.mask = [[] for _ in rows]
+        self.mask = [[0 for _ in r] for r in self.rows]
 
     def __repr__(self) -> str:
         return (
@@ -41,26 +44,61 @@ def get_winning_board(input: str):
         for board in boards:
             for idx, row in enumerate(board.rows):
                 if num in row:
-                    board.mask[idx].append(int(num))
+                    board.mask[idx][row.index(num)] = num
                     break
-            if any(len(mask) == len(board.rows[0]) for mask in board.mask):
+            row_wise = [a == b for (a, b) in zip(board.mask, board.rows)]
+            col_wise = [
+                board.mask[:][c] == board.rows[:][c]
+                for c in range(len(board.rows[0]))
+            ]
+            if any(row_wise) or any(col_wise):
                 return board, num
-    return boards
+    return boards, num
 
 
-def get_score(input: str):
-    wb, wnum = get_winning_board(input)
+def get_last_winning_board(input: str):
+    input = input.split("\n\n")
+    numbers, boards = list(map(int, input[0].split(","))), input[1:]
+    boards = [Board(b.split("\n")) for b in boards]
+    winning_boards = []
+    for num in numbers:
+        for board_idx, board in enumerate(boards):
+            if board_idx in winning_boards:
+                continue
+            for idx, row in enumerate(board.rows):
+                if num in row:
+                    board.mask[idx][row.index(num)] = num
+                    break
+            row_wise = [a == b for (a, b) in zip(board.mask, board.rows)]
+            col_wise = [
+                [m[c] for m in board.mask] == [r[c] for r in board.rows]
+                for c in range(len(board.rows[0]))
+            ]
+            if any(row_wise) or any(col_wise):
+                winning_boards.append(board_idx)
+                if len(winning_boards) == len(boards):
+                    return boards[board_idx], num
+    return boards[winning_boards[-1]], num
+
+
+def get_score(wb, wnum):
     rows, marked = wb.rows, wb.mask
     final = []
     for idx, row in enumerate(rows):
         for num in row:
-            if not num in marked[idx]:
+            if num not in marked[idx]:
                 final.append(num)
     return sum(final) * wnum  # reduce(lambda x, y: x * y, final, 1)
 
 
-out = get_score(test_input)
+out = get_score(*get_winning_board(test_input))
 assert out == 4512, out
 
 with open("inputs/day4.txt", "r") as f:
-    print(get_score(f.read()))
+    print(get_score(*get_winning_board(f.read())))
+
+out = get_score(*get_last_winning_board(test_input))
+assert out == 1924, out
+
+with open("inputs/day4.txt", "r") as f:
+    print(get_score(*get_last_winning_board(f.read())))
